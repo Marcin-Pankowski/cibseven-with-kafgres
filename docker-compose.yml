@@ -1,0 +1,35 @@
+services:
+  kafgres:
+    # Kafgres hat kein veröffentlichtes Image, daher Build direkt aus dem Git-Tag.
+    build:
+      context: https://github.com/RayElg/kafgres.git#0.3.1
+      dockerfile: docker/Dockerfile
+    image: kafgres-postgres:0.3.1
+    ports:
+      - "127.0.0.1:5432:5432"   # PostgreSQL (auch Datenbank für CIB seven)
+      - "127.0.0.1:9092:9092"   # Kafka-Protokoll
+      - "127.0.0.1:8090:8080"   # Kafka UI (läuft im Netzwerk dieses Containers, siehe unten)
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./kafgres/init-topics.sql:/docker-entrypoint-initdb.d/02-init-topics.sql:ro
+      - kafgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Redpanda Console statt Kafbat Kafka UI: Kafbat bricht ab, weil Kafgres kein KRaft-Quorum (DescribeQuorum) hat.
+  kafka-ui:
+    image: redpandadata/console:v3.12.0
+    # Kafgres meldet 127.0.0.1:9092 als Broker-Adresse; im selben Netzwerk-Namespace stimmt die auch für die UI.
+    network_mode: "service:kafgres"
+    depends_on:
+      kafgres:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: 127.0.0.1:9092
+
+volumes:
+  kafgres-data:

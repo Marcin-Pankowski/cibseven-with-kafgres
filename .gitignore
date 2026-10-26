@@ -1,0 +1,7 @@
+target/
+presentation/
+.github/modernize/
+.DS_Store
+.idea/
+.vscode/
+*.iml

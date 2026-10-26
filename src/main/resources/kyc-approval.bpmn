@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_Kyc" targetNamespace="http://example.com/kyc">
+  <bpmn:message id="Message_KycApprovalRequested" name="KycApprovalRequested" />
+  <bpmn:message id="Message_KycApproved" name="KycApproved" />
+  <bpmn:message id="Message_KycRejected" name="KycRejected" />
+  <bpmn:process id="KycApproval" name="KYC-Freigabe" isExecutable="true" camunda:historyTimeToLive="P30D">
+    <bpmn:startEvent id="StartEvent_Requested" name="KYC-Prüfung angefordert">
+      <bpmn:outgoing>Flow_ToTask</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_KycApprovalRequested" />
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_ReviewKyc" name="KYC prüfen">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="customerId" label="Kunden-ID" type="string">
+            <camunda:validation>
+              <camunda:constraint name="readonly" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="name" label="Name" type="string">
+            <camunda:validation>
+              <camunda:constraint name="readonly" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="approved" label="KYC genehmigen?" type="boolean" />
+          <camunda:formField id="comment" label="Kommentar" type="string" />
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToTask</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToGateway</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_Decision" name="Genehmigt?">
+      <bpmn:incoming>Flow_ToGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Approved</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Rejected</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="EndEvent_Approved" name="KYC genehmigt">
+      <bpmn:incoming>Flow_Approved</bpmn:incoming>
+      <bpmn:messageEventDefinition messageRef="Message_KycApproved" camunda:delegateExpression="${kafkaPublisher}" />
+    </bpmn:endEvent>
+    <bpmn:endEvent id="EndEvent_Rejected" name="KYC abgelehnt">
+      <bpmn:incoming>Flow_Rejected</bpmn:incoming>
+      <bpmn:messageEventDefinition messageRef="Message_KycRejected" camunda:delegateExpression="${kafkaPublisher}" />
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_ToTask" sourceRef="StartEvent_Requested" targetRef="Task_ReviewKyc" />
+    <bpmn:sequenceFlow id="Flow_ToGateway" sourceRef="Task_ReviewKyc" targetRef="Gateway_Decision" />
+    <bpmn:sequenceFlow id="Flow_Approved" name="ja" sourceRef="Gateway_Decision" targetRef="EndEvent_Approved">
+      <bpmn:conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="bpmn:tFormalExpression">${approved}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Rejected" name="nein" sourceRef="Gateway_Decision" targetRef="EndEvent_Rejected">
+      <bpmn:conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="bpmn:tFormalExpression">${!approved}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_Kyc">
+    <bpmndi:BPMNPlane id="Plane_Kyc" bpmnElement="KycApproval">
+      <bpmndi:BPMNShape id="Shape_Start" bpmnElement="StartEvent_Requested">
+        <dc:Bounds x="152" y="142" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="128" y="185" width="85" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task" bpmnElement="Task_ReviewKyc">
+        <dc:Bounds x="250" y="120" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway" bpmnElement="Gateway_Decision" isMarkerVisible="true">
+        <dc:Bounds x="415" y="135" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="370" y="125" width="60" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndApproved" bpmnElement="EndEvent_Approved">
+        <dc:Bounds x="542" y="82" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="523" y="125" width="74" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndRejected" bpmnElement="EndEvent_Rejected">
+        <dc:Bounds x="542" y="202" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="525" y="245" width="70" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_ToTask" bpmnElement="Flow_ToTask">
+        <di:waypoint x="188" y="160" />
+        <di:waypoint x="250" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_ToGateway" bpmnElement="Flow_ToGateway">
+        <di:waypoint x="350" y="160" />
+        <di:waypoint x="415" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Approved" bpmnElement="Flow_Approved">
+        <di:waypoint x="440" y="135" />
+        <di:waypoint x="440" y="100" />
+        <di:waypoint x="542" y="100" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="484" y="82" width="12" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Rejected" bpmnElement="Flow_Rejected">
+        <di:waypoint x="440" y="185" />
+        <di:waypoint x="440" y="220" />
+        <di:waypoint x="542" y="220" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="479" y="202" width="22" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -1,0 +1,38 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cibseven
+    username: postgres
+    password: postgres
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: kyc-approval
+      auto-offset-reset: earliest
+
+camunda:
+  bpm:
+    admin-user:
+      id: demo
+      password: demo
+    filter:
+      create: Alle Aufgaben
+
+# Verbindung Kafka-Topic <-> BPMN-Message (Name der Message im BPMN-Modell)
+kafka-bpm:
+  # Eingehend: Nachricht auf dem Topic korreliert die Message (Start- oder Zwischenereignis).
+  # Kafka-Key = Business Key, JSON-Value = Prozessvariablen.
+  inbound:
+    - topic: kyc.approval.requested
+      message: KycApprovalRequested
+  # Ausgehend: Message-End-/Throw-Event mit delegateExpression ${kafkaPublisher} sendet auf das Topic.
+  outbound:
+    - message: KycApproved
+      topic: kyc.approval.approved
+    - message: KycRejected
+      topic: kyc.approval.rejected
+
+cibseven:
+  webclient:
+    authentication:
+      # Öffentliches DEMO-Secret, nur für lokale Tests! Produktiv per CIBSEVEN_WEBCLIENT_AUTHENTICATION_JWTSECRET überschreiben (min. 155 Zeichen, base64).
+      jwtSecret: 4PB+NvkBF96LmEWNZv8WRk60sfMEVh5plZ7aDQYauEo+yA7Aj+KuNk31R6AWe+Amq+gw74cHXpl9ADaoe2PumOYoWZt470fVRUTJj6p4gIRPnG+nYjsvUSq0p80IZ/7zP89ldsebdbJ52I9M/vJu1XdbUjOGw4xy
